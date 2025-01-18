@@ -1,12 +1,14 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
 from datetime import datetime
+import json
 import os
 from translations import translations
 from database import db
-from models import User, Expense
+from models import User, Expense, Revenue
+import requests
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-123')
@@ -42,8 +44,85 @@ def index():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.timestamp.desc()).limit(5)
-    return render_template('dashboard.html', user=current_user, transactions=transactions)
+    # Récupérer les dépenses récentes
+    expenses = Expense.query.filter_by(user_id=current_user.id).order_by(Expense.date.desc()).limit(5)
+    
+    # Calculer le total des dépenses pour la période en cours (ce mois-ci)
+    current_month = datetime.now().month
+    current_year = datetime.now().year
+    total_expenses = db.session.query(db.func.sum(Expense.amount)).filter(
+        Expense.user_id == current_user.id,
+        db.extract('month', Expense.date) == current_month,
+        db.extract('year', Expense.date) == current_year
+    ).scalar() or 0
+
+    # Calculer la croissance des dépenses (comparaison avec le mois précédent)
+    last_month = (current_month - 1) if current_month > 1 else 12
+    last_month_year = current_year if current_month > 1 else current_year - 1
+    
+    last_month_total = db.session.query(db.func.sum(Expense.amount)).filter(
+        Expense.user_id == current_user.id,
+        db.extract('month', Expense.date) == last_month,
+        db.extract('year', Expense.date) == last_month_year
+    ).scalar() or 0
+    
+    expense_growth = ((total_expenses - last_month_total) / last_month_total * 100) if last_month_total > 0 else 0
+
+    # Nombre total de transactions ce mois
+    total_transactions = Expense.query.filter(
+        Expense.user_id == current_user.id,
+        db.extract('month', Expense.date) == current_month,
+        db.extract('year', Expense.date) == current_year
+    ).count()
+
+    # Top catégories
+    categories = db.session.query(
+        Expense.category,
+        db.func.sum(Expense.amount).label('total_amount')
+    ).filter(
+        Expense.user_id == current_user.id,
+        db.extract('month', Expense.date) == current_month,
+        db.extract('year', Expense.date) == current_year
+    ).group_by(Expense.category).all()
+    
+    # Calculer les pourcentages pour chaque catégorie
+    top_categories = []
+    if categories:
+        total_amount = sum(cat.total_amount for cat in categories)
+        top_categories = [
+            {
+                'name': cat.category,
+                'amount': cat.total_amount,
+                'percentage': round((cat.total_amount / total_amount) * 100 if total_amount > 0 else 0, 1)
+            }
+            for cat in categories
+        ]
+
+    # Factures à venir (simulées pour l'exemple)
+    upcoming_bills = [
+        {
+            'title': get_text('office_rent'),
+            'amount': 5000,
+            'days_left': 5,
+            'recurring': True
+        },
+        {
+            'title': get_text('utilities'),
+            'amount': 1200,
+            'days_left': 12,
+            'recurring': True
+        }
+    ]
+
+    return render_template('dashboard.html',
+        user=current_user,
+        expenses=expenses,
+        total_expenses=total_expenses,
+        expense_growth=expense_growth,
+        total_transactions=total_transactions,
+        top_categories=top_categories,
+        upcoming_bills=upcoming_bills
+    )
 
 @app.route('/transfer', methods=['GET', 'POST'])
 @login_required
@@ -54,17 +133,17 @@ def transfer():
         description = request.form.get('description')
 
         if amount <= current_user.balance:
-            transaction = Transaction(
-                user_id=current_user.id,
-                amount=amount,
-                transaction_type='transfer',
-                description=description,
-                recipient=recipient,
-                status='completed'
-            )
-            current_user.balance -= amount
-            db.session.add(transaction)
-            db.session.commit()
+            # transaction = Transaction(
+            #     user_id=current_user.id,
+            #     amount=amount,
+            #     transaction_type='transfer',
+            #     description=description,
+            #     recipient=recipient,
+            #     status='completed'
+            # )
+            # current_user.balance -= amount
+            # db.session.add(transaction)
+            # db.session.commit()
             flash('Transfer successful!', 'success')
         else:
             flash('Insufficient funds!', 'error')
@@ -72,19 +151,6 @@ def transfer():
         return redirect(url_for('dashboard'))
     
     return render_template('transfer.html')
-
-@app.route('/api/transactions')
-@login_required
-def get_transactions():
-    transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.timestamp.desc()).all()
-    return jsonify([{
-        'id': t.id,
-        'amount': t.amount,
-        'type': t.transaction_type,
-        'description': t.description,
-        'timestamp': t.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-        'status': t.status
-    } for t in transactions])
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -96,7 +162,7 @@ def login():
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             flash(get_text('login_success'), 'success')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
         else:
             flash(get_text('login_error'), 'error')
     
@@ -151,77 +217,174 @@ def set_language(lang):
 def expenses():
     return render_template('expenses.html')
 
-@app.route('/api/expenses', methods=['GET'])
+@app.route('/add_expense', methods=['POST'])
+@login_required
+def add_expense():
+    try:
+        amount = float(request.form.get('amount'))
+        description = request.form.get('description')
+        category = request.form.get('category')
+        date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
+        
+        new_expense = Expense(
+            amount=amount,
+            description=description,
+            category=category,
+            date=date,
+            user_id=current_user.id
+        )
+        
+        # Gérer le reçu s'il est fourni
+        if 'receipt' in request.files:
+            receipt = request.files['receipt']
+            if receipt and receipt.filename:
+                # Créer le dossier uploads s'il n'existe pas
+                if not os.path.exists('uploads'):
+                    os.makedirs('uploads')
+                
+                # Sauvegarder le fichier
+                filename = secure_filename(f"{current_user.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{receipt.filename}")
+                receipt.save(os.path.join('uploads', filename))
+                new_expense.receipt_path = filename
+        
+        db.session.add(new_expense)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': get_text('expense_added_success')})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+@app.route('/get_expenses')
 @login_required
 def get_expenses():
     expenses = Expense.query.filter_by(user_id=current_user.id).order_by(Expense.date.desc()).all()
     return jsonify([expense.to_dict() for expense in expenses])
 
-@app.route('/api/expenses', methods=['POST'])
+@app.route('/delete_expense/<int:id>', methods=['DELETE'])
 @login_required
-def add_expense():
-    data = request.json
-    expense = Expense(
-        description=data['description'],
-        amount=float(data['amount']),
-        category=data['category'],
-        date=datetime.strptime(data['date'], '%Y-%m-%d'),
-        notes=data.get('notes'),
-        user_id=current_user.id
-    )
-    db.session.add(expense)
-    db.session.commit()
-    return jsonify(expense.to_dict()), 201
-
-@app.route('/api/expenses/<int:expense_id>', methods=['PUT'])
-@login_required
-def update_expense(expense_id):
-    expense = Expense.query.get_or_404(expense_id)
-    if expense.user_id != current_user.id:
-        return jsonify({'error': 'Unauthorized'}), 403
-    
-    data = request.json
-    expense.description = data.get('description', expense.description)
-    expense.amount = float(data.get('amount', expense.amount))
-    expense.category = data.get('category', expense.category)
-    expense.date = datetime.strptime(data.get('date', expense.date.strftime('%Y-%m-%d')), '%Y-%m-%d')
-    expense.notes = data.get('notes', expense.notes)
-    
-    db.session.commit()
-    return jsonify(expense.to_dict())
-
-@app.route('/api/expenses/<int:expense_id>', methods=['DELETE'])
-@login_required
-def delete_expense(expense_id):
-    expense = Expense.query.get_or_404(expense_id)
-    if expense.user_id != current_user.id:
-        return jsonify({'error': 'Unauthorized'}), 403
-    
-    db.session.delete(expense)
-    db.session.commit()
-    return '', 204
-
-@app.route('/api/expenses/upload', methods=['POST'])
-@login_required
-def upload_receipt():
-    if 'receipt' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-    
-    file = request.files['receipt']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if file:
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+def delete_expense(id):
+    try:
+        expense = Expense.query.get_or_404(id)
+        if expense.user_id != current_user.id:
+            return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+            
+        # Supprimer le reçu s'il existe
+        if expense.receipt_path:
+            receipt_path = os.path.join('uploads', expense.receipt_path)
+            if os.path.exists(receipt_path):
+                os.remove(receipt_path)
         
-        # TODO: Implement AI receipt processing here
+        db.session.delete(expense)
+        db.session.commit()
         
-        return jsonify({
-            'filepath': filepath,
-            'message': 'Receipt uploaded successfully'
-        })
+        return jsonify({'success': True, 'message': get_text('expense_deleted_success')})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+@app.route('/chat', methods=['POST'])
+@login_required
+def chat():
+    data = request.get_json()
+    user_message = data.get('message', '')
+    
+    try:
+        # Récupérer les dépenses de l'utilisateur pour le contexte
+        user_expenses = Expense.query.filter_by(user_id=current_user.id).all()
+        total_expenses = sum(expense.amount for expense in user_expenses)
+        
+        # Préparer le résumé des dépenses
+        if user_expenses:
+            # S'il y a des dépenses, obtenir la catégorie principale
+            categories = {}
+            for expense in user_expenses:
+                categories[expense.category] = categories.get(expense.category, 0) + expense.amount
+            top_category = max(categories.items(), key=lambda x: x[1])
+            expense_summary = f"Total: {total_expenses}MAD. Catégorie principale: {top_category[0]}: {top_category[1]}MAD"
+        else:
+            # S'il n'y a pas de dépenses
+            expense_summary = "Aucune dépense enregistrée pour le moment"
+        
+        # Message système détaillé mais concis
+        system_message = f"""Assistant Morocco SME Wallet. {expense_summary}.
+Rôle: Guider les PME marocaines dans la gestion de leurs dépenses via l'application.
+Fonctionnalités: Suivi des dépenses, catégorisation, analyse des tendances, rapports PDF.
+Catégories disponibles: Matériel, Marketing, Services, Salaires, Transport, Autres.
+Répondre en français avec des conseils pratiques liés aux fonctionnalités de l'application."""
+        
+        response = requests.post('http://localhost:11434/api/generate', 
+            json={
+                "model": "llama3.2:1b",
+                "prompt": user_message,
+                "stream": False,
+                "system": system_message,
+                "options": {
+                    "temperature": 0.7,
+                    "num_predict": 150,
+                    "top_k": 20,
+                    "top_p": 0.9,
+                    "num_ctx": 128,
+                    "repeat_penalty": 1.1
+                }
+            })
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Ollama response:", response_data)
+            
+            if 'response' in response_data:
+                return jsonify({'response': response_data['response']})
+            else:
+                print("Unexpected response format:", response_data)
+                return jsonify({'response': "Format de réponse inattendu de l'assistant."}), 500
+        else:
+            print(f"Error status code: {response.status_code}")
+            print("Error response:", response.text)
+            return jsonify({'response': "Désolé, je ne peux pas répondre pour le moment."}), 500
+            
+    except Exception as e:
+        print(f"Error calling Ollama: {str(e)}")
+        return jsonify({'response': "Une erreur s'est produite lors de la communication avec le chatbot."}), 500
+
+@app.route('/add_revenue', methods=['POST'])
+@login_required
+def add_revenue():
+    try:
+        data = request.get_json()
+        new_revenue = Revenue(
+            amount=float(data['amount']),
+            description=data['description'],
+            category=data['category'],
+            date=datetime.strptime(data['date'], '%Y-%m-%d').date(),
+            user_id=current_user.id
+        )
+        db.session.add(new_revenue)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Revenu ajouté avec succès'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+@app.route('/get_revenues')
+@login_required
+def get_revenues():
+    revenues = Revenue.query.filter_by(user_id=current_user.id).order_by(Revenue.date.desc()).all()
+    return jsonify([revenue.to_dict() for revenue in revenues])
+
+@app.route('/api/transactions')
+@login_required
+def get_transactions():
+    # transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.timestamp.desc()).all()
+    # return jsonify([{
+    #     'id': t.id,
+    #     'amount': t.amount,
+    #     'type': t.transaction_type,
+    #     'description': t.description,
+    #     'timestamp': t.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+    #     'status': t.status
+    # } for t in transactions])
+    return jsonify([])
 
 if __name__ == '__main__':
     with app.app_context():

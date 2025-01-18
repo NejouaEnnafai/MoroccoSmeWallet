@@ -14,6 +14,7 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(20))
     address = db.Column(db.String(200))
     expenses = db.relationship('Expense', backref='user', lazy=True)
+    revenues = db.relationship('Revenue', backref='user', lazy=True)
 
 class Expense(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -40,4 +41,23 @@ class Expense(db.Model):
             'status': self.status,
             'ai_category': self.ai_category,
             'receipt_path': self.receipt_path
+        }
+
+class Revenue(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    amount = db.Column(db.Float, nullable=False)
+    description = db.Column(db.String(200))
+    category = db.Column(db.String(50), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'amount': self.amount,
+            'description': self.description,
+            'category': self.category,
+            'date': self.date.strftime('%Y-%m-%d'),
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }

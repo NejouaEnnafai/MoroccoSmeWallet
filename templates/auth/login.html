@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="auth-logo">
+                <i class="fas fa-wallet"></i>
+            </div>
+            <h1 class="auth-title">Morocco SME Wallet</h1>
+            <p class="auth-subtitle">Connectez-vous à votre compte</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-floating">
+                <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com" required>
+                <label for="email">Email</label>
+            </div>
+
+            <div class="form-floating">
+                <input type="password" class="form-control" id="password" name="password" placeholder="Mot de passe" required>
+                <label for="password">Mot de passe</label>
+            </div>
+
+            <button type="submit" class="auth-btn">
+                <i class="fas fa-sign-in-alt me-2"></i>Se connecter
+            </button>
+
+            <div class="auth-links">
+                <p>Vous n'avez pas de compte? <a href="{{ url_for('register') }}">S'inscrire</a></p>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,201 +1,268 @@
 {% extends "base.html" %}
 
-{% block title %}لوحة التحكم - Morocco SME Wallet{% endblock %}
-
 {% block content %}
-<div class="row">
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-body text-center">
-                <h5 class="card-title">الرصيد الحالي</h5>
-                <h2 class="text-primary">{{ "%.2f"|format(current_user.balance) }} درهم</h2>
+<div class="dashboard-wrapper">
+    <!-- Sidebar -->
+    <nav class="dashboard-sidebar">
+        <div class="sidebar-header">
+            <div class="company-logo">
+                <i class="fas fa-wallet"></i>
             </div>
+            <h3 class="company-name">SME Wallet</h3>
         </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-body text-center">
-                <h5 class="card-title">المعاملات اليوم</h5>
-                <h2 class="text-success">{{ daily_transactions|default(0) }}</h2>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-body text-center">
-                <h5 class="card-title">حالة الحساب</h5>
-                <h2 class="text-{{ 'success' if current_user.is_verified else 'warning' }}">
-                    {{ 'مُتحقق' if current_user.is_verified else 'قيد التحقق' }}
-                </h2>
-            </div>
-        </div>
-    </div>
-</div>
+        
+        <ul class="sidebar-menu">
+            <li class="menu-item active">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-chart-line"></i>
+                    <span>{{ get_text('analytics') }}</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('get_transactions') }}">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>{{ get_text('recent_transactions') }}</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('expenses') }}">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span>{{ get_text('expense_tracking') }}</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-coins"></i>
+                    <span>{{ get_text('invoices') }}</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-file-alt"></i>
+                    <span>{{ get_text('view_reports') }}</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-cog"></i>
+                    <span>{{ get_text('settings') }}</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="#" onclick="toggleChatbot(event)">
+                    <i class="fas fa-robot"></i>
+                    <span>{{ get_text('chatbot') }}</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <select class="language-select" onchange="window.location.href=this.value">
+                    <option value="#" disabled selected>{{ get_text('choose_language') }}</option>
+                    <option value="{{ url_for('set_language', lang='ar') }}">{{ get_text('arabic') }}</option>
+                    <option value="{{ url_for('set_language', lang='fr') }}">{{ get_text('french') }}</option>
+                </select>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>{{ get_text('logout') }}</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
 
-<div class="row">
-    <div class="col-md-8">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">نشاط الحساب</h5>
+    <!-- Chatbot Interface -->
+    <div class="chatbot-container" id="chatbot">
+        <div class="chatbot-header">
+            <h3>{{ get_text('chatbot') }}</h3>
+            <button class="close-chat" onclick="toggleChatbot(event)">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <!-- Messages will be added here -->
+        </div>
+        <div class="chat-typing" id="chatTyping" style="display: none;">
+            <div class="typing-indicator">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
             </div>
-            <div class="card-body">
-                <canvas id="transactionChart"></canvas>
-            </div>
+            <span>{{ get_text('generating') }}</span>
+        </div>
+        <div class="chat-input">
+            <input type="text" placeholder="{{ get_text('chat_placeholder') }}" id="messageInput">
+            <button onclick="sendMessage()">
+                <i class="fas fa-paper-plane"></i>
+            </button>
         </div>
     </div>
-    
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">إجراءات سريعة</h5>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+        <!-- Top Navigation -->
+        <header class="dashboard-header">
+            <div class="header-search">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="{{ get_text('search') }}...">
             </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="{{ url_for('transfer') }}" class="btn btn-primary">
-                        <i class="bi bi-arrow-left-right"></i> تحويل جديد
-                    </a>
-                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#depositModal">
-                        <i class="bi bi-plus-circle"></i> إيداع
-                    </button>
-                    <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#withdrawModal">
-                        <i class="bi bi-dash-circle"></i> سحب
-                    </button>
+            <div class="header-actions">
+                <button class="btn-notification">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge">3</span>
+                </button>
+                <div class="company-info">
+                    <h1 class="company-name">{{ current_user.business_name }}</h1>
+                    <p class="welcome-text">{{ get_text('welcome') }}, {{ current_user.username }}</p>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
+        </header>
 
-<div class="card">
-    <div class="card-header">
-        <h5 class="card-title mb-0">آخر المعاملات</h5>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>التاريخ</th>
-                    <th>النوع</th>
-                    <th>المبلغ</th>
-                    <th>الوصف</th>
-                    <th>الحالة</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for transaction in transactions %}
-                <tr>
-                    <td>{{ transaction.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>
-                        {% if transaction.transaction_type == 'deposit' %}
-                            <span class="badge bg-success">إيداع</span>
-                        {% elif transaction.transaction_type == 'withdrawal' %}
-                            <span class="badge bg-warning">سحب</span>
-                        {% else %}
-                            <span class="badge bg-primary">تحويل</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ "%.2f"|format(transaction.amount) }} درهم</td>
-                    <td>{{ transaction.description }}</td>
-                    <td>
-                        <span class="badge bg-{{ 'success' if transaction.status == 'completed' else 'warning' }}">
-                            {{ 'مكتمل' if transaction.status == 'completed' else 'قيد التنفيذ' }}
+        <!-- Dashboard Content -->
+        <div class="dashboard-content">
+            <!-- Quick Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ get_text('current_balance') }}</h3>
+                        <p class="stat-value">{{ '{:,.0f}'.format(total_expenses) }} MAD</p>
+                        <span class="stat-change {{ 'positive' if expense_growth > 0 else 'negative' }}">
+                            {{ '{:+.1f}'.format(expense_growth) }}% 
+                            <i class="fas fa-arrow-{{ 'up' if expense_growth > 0 else 'down' }}"></i>
                         </span>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Deposit Modal -->
-<div class="modal fade" id="depositModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">إيداع جديد</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ get_text('total_expenses') }}</h3>
+                        <p class="stat-value">{{ '{:,.0f}'.format(total_expenses) }} MAD</p>
+                        <span class="stat-change {{ 'positive' if expense_growth < 0 else 'negative' }}">
+                            {{ '{:+.1f}'.format(expense_growth) }}% 
+                            <i class="fas fa-arrow-{{ 'up' if expense_growth > 0 else 'down' }}"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ get_text('recent_transactions') }}</h3>
+                        <p class="stat-value">{{ total_transactions }}</p>
+                        <span class="stat-change positive">{{ get_text('this_month') }}</span>
+                    </div>
+                </div>
             </div>
-            <form action="{{ url_for('deposit') }}" method="post">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">المبلغ (درهم)</label>
-                        <input type="number" step="0.01" class="form-control" name="amount" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">الوصف</label>
-                        <input type="text" class="form-control" name="description">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
-                    <button type="submit" class="btn btn-success">تأكيد الإيداع</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
-<!-- Withdraw Modal -->
-<div class="modal fade" id="withdrawModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">سحب جديد</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <!-- Recent Transactions -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>{{ get_text('recent_transactions') }}</h2>
+                    <a href="{{ url_for('get_transactions') }}" class="btn-link">{{ get_text('view_all') }}</a>
+                </div>
+                <div class="transactions-list">
+                    {% for expense in expenses %}
+                    <div class="transaction-item">
+                        <div class="transaction-icon expense">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                        <div class="transaction-info">
+                            <h4>{{ expense.description }}</h4>
+                            <span class="transaction-date">{{ expense.date.strftime('%d %b %Y') }}</span>
+                        </div>
+                        <div class="transaction-amount expense">
+                            -{{ '{:,.0f}'.format(expense.amount) }} MAD
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
-            <form action="{{ url_for('withdraw') }}" method="post">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">المبلغ (درهم)</label>
-                        <input type="number" step="0.01" class="form-control" name="amount" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">الوصف</label>
-                        <input type="text" class="form-control" name="description">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
-                    <button type="submit" class="btn btn-warning">تأكيد السحب</button>
-                </div>
-            </form>
         </div>
-    </div>
+    </main>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    fetch('/api/transactions')
-        .then(response => response.json())
-        .then(data => {
-            const ctx = document.getElementById('transactionChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: data.map(t => new Date(t.timestamp).toLocaleDateString()),
-                    datasets: [{
-                        label: 'المعاملات',
-                        data: data.map(t => t.amount),
-                        borderColor: 'rgb(75, 192, 192)',
-                        tension: 0.1
-                    }]
+function toggleChatbot(event) {
+    event.preventDefault();
+    const chatbot = document.getElementById('chatbot');
+    chatbot.classList.toggle('active');
+}
+
+async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const message = input.value.trim();
+    const chatTyping = document.getElementById('chatTyping');
+    
+    if (message) {
+        const chatMessages = document.getElementById('chatMessages');
+        
+        // Ajouter le message de l'utilisateur
+        const userMessage = document.createElement('div');
+        userMessage.className = 'message user';
+        userMessage.textContent = message;
+        chatMessages.appendChild(userMessage);
+        
+        // Clear input et désactiver
+        input.value = '';
+        input.disabled = true;
+        
+        // Afficher l'indicateur de frappe
+        chatTyping.style.display = 'flex';
+        
+        try {
+            // Appeler l'API du chatbot
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
+                body: JSON.stringify({ message: message })
             });
-        });
+            
+            const data = await response.json();
+            
+            // Masquer l'indicateur de frappe
+            chatTyping.style.display = 'none';
+            
+            // Ajouter la réponse du bot
+            const botMessage = document.createElement('div');
+            botMessage.className = 'message bot';
+            botMessage.textContent = data.response;
+            chatMessages.appendChild(botMessage);
+        } catch (error) {
+            console.error('Error:', error);
+            // Masquer l'indicateur de frappe
+            chatTyping.style.display = 'none';
+            
+            // Message d'erreur
+            const errorMessage = document.createElement('div');
+            errorMessage.className = 'message bot error';
+            errorMessage.textContent = "Désolé, une erreur s'est produite.";
+            chatMessages.appendChild(errorMessage);
+        } finally {
+            // Réactiver l'input
+            input.disabled = false;
+            input.focus();
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+}
+
+// Permettre l'envoi du message avec la touche Entrée
+document.getElementById('messageInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey && !this.disabled) {
+        e.preventDefault();
+        sendMessage();
+    }
 });
 </script>
 {% endblock %}
