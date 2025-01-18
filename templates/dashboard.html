@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}لوحة التحكم - Morocco SME Wallet{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <h5 class="card-title">الرصيد الحالي</h5>
+                <h2 class="text-primary">{{ "%.2f"|format(current_user.balance) }} درهم</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <h5 class="card-title">المعاملات اليوم</h5>
+                <h2 class="text-success">{{ daily_transactions|default(0) }}</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <h5 class="card-title">حالة الحساب</h5>
+                <h2 class="text-{{ 'success' if current_user.is_verified else 'warning' }}">
+                    {{ 'مُتحقق' if current_user.is_verified else 'قيد التحقق' }}
+                </h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">نشاط الحساب</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="transactionChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">إجراءات سريعة</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('transfer') }}" class="btn btn-primary">
+                        <i class="bi bi-arrow-left-right"></i> تحويل جديد
+                    </a>
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#depositModal">
+                        <i class="bi bi-plus-circle"></i> إيداع
+                    </button>
+                    <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#withdrawModal">
+                        <i class="bi bi-dash-circle"></i> سحب
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">آخر المعاملات</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>التاريخ</th>
+                    <th>النوع</th>
+                    <th>المبلغ</th>
+                    <th>الوصف</th>
+                    <th>الحالة</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        {% if transaction.transaction_type == 'deposit' %}
+                            <span class="badge bg-success">إيداع</span>
+                        {% elif transaction.transaction_type == 'withdrawal' %}
+                            <span class="badge bg-warning">سحب</span>
+                        {% else %}
+                            <span class="badge bg-primary">تحويل</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ "%.2f"|format(transaction.amount) }} درهم</td>
+                    <td>{{ transaction.description }}</td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if transaction.status == 'completed' else 'warning' }}">
+                            {{ 'مكتمل' if transaction.status == 'completed' else 'قيد التنفيذ' }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Deposit Modal -->
+<div class="modal fade" id="depositModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إيداع جديد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('deposit') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">المبلغ (درهم)</label>
+                        <input type="number" step="0.01" class="form-control" name="amount" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الوصف</label>
+                        <input type="text" class="form-control" name="description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success">تأكيد الإيداع</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Withdraw Modal -->
+<div class="modal fade" id="withdrawModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">سحب جديد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('withdraw') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">المبلغ (درهم)</label>
+                        <input type="number" step="0.01" class="form-control" name="amount" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الوصف</label>
+                        <input type="text" class="form-control" name="description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-warning">تأكيد السحب</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/transactions')
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('transactionChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(t => new Date(t.timestamp).toLocaleDateString()),
+                    datasets: [{
+                        label: 'المعاملات',
+                        data: data.map(t => t.amount),
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        });
+});
+</script>
+{% endblock %}

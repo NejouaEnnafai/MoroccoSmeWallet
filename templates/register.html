@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid vh-100 d-flex align-items-center justify-content-center">
+    <div class="card glass-effect shadow-lg" style="max-width: 600px; width: 100%;">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <div class="logo-circle mb-3">
+                    <i class="fas fa-wallet fa-2x text-gradient"></i>
+                </div>
+                <h2 class="text-gradient">{{ get_text('register') }}</h2>
+                <p class="text-white-50 mb-4">{{ get_text('register_desc') }}</p>
+            </div>
+            
+            <form method="POST" action="{{ url_for('register') }}">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="form-floating custom-input">
+                            <input type="text" class="form-control bg-transparent text-white" id="business_name" name="business_name" required>
+                            <label for="business_name"><i class="fas fa-building me-2"></i>{{ get_text('business_name') }}</label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-floating custom-input">
+                            <input type="email" class="form-control bg-transparent text-white" id="email" name="email" required>
+                            <label for="email"><i class="fas fa-envelope me-2"></i>{{ get_text('email') }}</label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-floating custom-input">
+                            <input type="password" class="form-control bg-transparent text-white" id="password" name="password" required>
+                            <label for="password"><i class="fas fa-lock me-2"></i>{{ get_text('password') }}</label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-floating custom-input">
+                            <select class="form-select bg-transparent text-white" id="business_type" name="business_type" required>
+                                <option value="" selected disabled></option>
+                                <option value="small">{{ get_text('small_business') }}</option>
+                                <option value="medium">{{ get_text('medium_business') }}</option>
+                            </select>
+                            <label for="business_type"><i class="fas fa-briefcase me-2"></i>{{ get_text('business_type') }}</label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-floating custom-input">
+                            <input type="tel" class="form-control bg-transparent text-white" id="phone" name="phone" required>
+                            <label for="phone"><i class="fas fa-phone me-2"></i>{{ get_text('phone') }}</label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-floating custom-input">
+                            <input type="text" class="form-control bg-transparent text-white" id="address" name="address" required>
+                            <label for="address"><i class="fas fa-map-marker-alt me-2"></i>{{ get_text('address') }}</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-glow w-100 mb-3 py-2">
+                        <span class="btn-content">
+                            <i class="fas fa-user-plus me-2"></i>{{ get_text('create_account') }}
+                        </span>
+                    </button>
+                    
+                    <p class="text-center mb-0">
+                        {{ get_text('have_account') }}
+                        <a href="{{ url_for('login') }}" class="text-primary text-decoration-none">
+                            {{ get_text('login') }}
+                            <i class="fas fa-arrow-left ms-1"></i>
+                        </a>
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.container-fluid {
+    background: none;
+    margin: 0;
+    padding: 0;
+}
+
+.glass-effect {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+}
+
+.logo-circle {
+    width: 70px;
+    height: 70px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.custom-input {
+    margin-bottom: 1rem;
+}
+
+.form-floating > .form-control,
+.form-floating > .form-select {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    height: 55px;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.form-floating > .form-control:focus,
+.form-floating > .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(25, 118, 210, 0.25);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.form-floating > label {
+    color: rgba(255, 255, 255, 0.7);
+    padding-left: 1rem;
+    height: 55px;
+    display: flex;
+    align-items: center;
+}
+
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label,
+.form-floating > .form-select:focus ~ label,
+.form-floating > .form-select:not([value=""]):valid ~ label {
+    color: var(--primary-color);
+    transform: scale(0.85) translateY(-1rem);
+    background: transparent;
+}
+
+.form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    background-position: left 0.75rem center;
+    padding-right: 2.5rem;
+}
+
+.form-select option {
+    background-color: #1a237e;
+    color: white;
+    padding: 10px;
+}
+
+.btn-glow {
+    background: linear-gradient(45deg, var(--primary-color), var(--primary-light));
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.btn-glow:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(25, 118, 210, 0.4);
+}
+
+.btn-glow::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        120deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    transition: 0.5s;
+}
+
+.btn-glow:hover::before {
+    left: 100%;
+}
+
+.text-gradient {
+    background: linear-gradient(45deg, #ffffff, var(--primary-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 600;
+}
+
+a {
+    transition: all 0.3s ease;
+}
+
+a:hover {
+    color: var(--primary-light) !important;
+    text-shadow: 0 0 10px rgba(25, 118, 210, 0.3);
+}
+
+.row.g-3 {
+    margin: 0 -10px;
+}
+
+.row.g-3 > [class*="col-"] {
+    padding: 0 10px;
+}
+</style>
+{% endblock %}

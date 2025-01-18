@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid vh-100 d-flex align-items-center justify-content-center">
+    <div class="card glass-effect shadow-lg" style="max-width: 400px; width: 100%;">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <div class="logo-circle mb-3">
+                    <i class="fas fa-wallet fa-2x text-gradient"></i>
+                </div>
+                <h2 class="text-gradient">{{ get_text('login') }}</h2>
+                <p class="text-white-50 mb-4">{{ get_text('login_desc') }}</p>
+            </div>
+            
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="form-floating custom-input mb-3">
+                    <input type="email" class="form-control bg-transparent text-white" id="email" name="email" required>
+                    <label for="email"><i class="fas fa-envelope me-2"></i>{{ get_text('email') }}</label>
+                </div>
+                
+                <div class="form-floating custom-input mb-4">
+                    <input type="password" class="form-control bg-transparent text-white" id="password" name="password" required>
+                    <label for="password"><i class="fas fa-lock me-2"></i>{{ get_text('password') }}</label>
+                </div>
+                
+                <button type="submit" class="btn btn-glow w-100 mb-3 py-2">
+                    <span class="btn-content">
+                        <i class="fas fa-sign-in-alt me-2"></i>{{ get_text('login') }}
+                    </span>
+                </button>
+                
+                <p class="text-center mb-0">
+                    {{ get_text('no_account') }}
+                    <a href="{{ url_for('register') }}" class="text-primary text-decoration-none">
+                        {{ get_text('register_now') }}
+                        <i class="fas fa-arrow-left ms-1"></i>
+                    </a>
+                </p>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.container-fluid {
+    background: none;
+    margin: 0;
+    padding: 0;
+}
+
+.glass-effect {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+}
+
+.logo-circle {
+    width: 70px;
+    height: 70px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.custom-input {
+    margin-bottom: 1rem;
+}
+
+.form-floating > .form-control {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    height: 55px;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.form-floating > .form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(25, 118, 210, 0.25);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.form-floating > label {
+    color: rgba(255, 255, 255, 0.7);
+    padding-left: 1rem;
+    height: 55px;
+    display: flex;
+    align-items: center;
+}
+
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label {
+    color: var(--primary-color);
+    transform: scale(0.85) translateY(-1rem);
+    background: transparent;
+}
+
+.btn-glow {
+    background: linear-gradient(45deg, var(--primary-color), var(--primary-light));
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.btn-glow:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(25, 118, 210, 0.4);
+}
+
+.btn-glow::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        120deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    transition: 0.5s;
+}
+
+.btn-glow:hover::before {
+    left: 100%;
+}
+
+.text-gradient {
+    background: linear-gradient(45deg, #ffffff, var(--primary-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 600;
+}
+
+a {
+    transition: all 0.3s ease;
+}
+
+a:hover {
+    color: var(--primary-light) !important;
+    text-shadow: 0 0 10px rgba(25, 118, 210, 0.3);
+}
+</style>
+{% endblock %}
